@@ -1,0 +1,12 @@
+import {directResults,wosacResults,resolutionResults,robustnessRows,tableCaptions,metricInfo,paper,type Metric,type ResultRow} from '../../data/results';
+import {$,tabs,select,check,transport,hint} from '../../ui/controls';
+import {bars} from '../../ui/charts';
+export function mount(root:HTMLElement){
+ root.innerHTML=`<div class="demo-header"><h3 class="demo-title">Results explorer</h3><span class="tag">Tables II–V</span></div><div class="demo-body"><div class="result-tabs"></div><div class="controls"></div><div class="result-chart"></div><p class="notice"></p><div class="playback"></div></div><div class="demo-footer">Reported values are transcribed from prmpt.txt; PDF verification is pending. ★ highlights the best controlled result for the selected metric. External references are excluded from that ranking.</div>`;
+ const sets:Record<string,ResultRow[]>={direct:directResults,wosac:wosacResults,resolution:resolutionResults,robustness:robustnessRows};let tab='direct',metric:Metric='success',sort=false,highlight=true,acc=0;let metricSelect:HTMLSelectElement;
+ function controls(){const c=$(root,'.controls');c.innerHTML='';const keys=Object.keys(sets[tab][0].metrics) as Metric[];if(!keys.includes(metric))metric=keys.includes('success')?'success':keys[0];metricSelect=select(c,'Metric',keys.map(k=>[k,`${metricInfo[k].label} ${metricInfo[k].higher?'↑':'↓'}`]),v=>{metric=v as Metric;draw();});metricSelect.value=metric;check(c,'Sort by performance',sort,v=>{sort=v;draw();});check(c,'Highlight best',highlight,v=>{highlight=v;draw();});}
+ function draw(){bars($(root,'.result-chart'),sets[tab],metric,sort,highlight);$(root,'.notice').textContent=tableCaptions[tab as keyof typeof tableCaptions]+(tab==='wosac'?` The text also reports approximate minADE/ADE falling from ${paper.ade.before} to ${paper.ade.after}.`:'');}
+ tabs($(root,'.result-tabs'),[['direct','Direct vs. Lookahead'],['wosac','WOSAC'],['resolution','Resolution'],['robustness','Robustness']],'direct',v=>{tab=v;controls();draw();});
+ function next(){const keys=Object.keys(sets[tab][0].metrics) as Metric[];metric=keys[(keys.indexOf(metric)+1)%keys.length];metricSelect.value=metric;draw();}
+ transport($(root,'.playback'),dt=>{acc+=dt;if(acc>3){acc=0;next();}},()=>{sort=false;highlight=true;metric=tab==='wosac'?'realism':'success';controls();draw();},next);hint($(root,'.demo-body'),'Change the metric before drawing a conclusion. Play cycles through metrics; exact values are listed below the chart.');controls();draw();
+}

@@ -1,0 +1,11 @@
+import {chromium} from '@playwright/test';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+page.on('pageerror',e=>console.error('BROWSER:',e.message));
+await page.goto('http://localhost:5173/');
+await page.waitForTimeout(1000);
+console.log(await page.locator('.demo-card').evaluateAll(es=>es.map(e=>({id:e.id,ready:!e.querySelector('.pending'),text:e.textContent.slice(0,70)}))));
+await page.screenshot({path:'artifacts/desktop.png'});
+await page.locator('#demo-lookahead').screenshot({path:'artifacts/stage-2-lookahead.png'});
+await page.locator('#demo-bezier').screenshot({path:'artifacts/stage-2-bezier.png'});
+await browser.close();

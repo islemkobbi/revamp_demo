@@ -1,0 +1,95 @@
+You are building a static, interactive project demo page for the research paper "REVAMP: Reversible Lookahead for Mid-to-Mid Reinforcement Learning Motion Planning" (attached PDF; read it fully, especially Sections III-VII and Appendices A-D). The audience is researchers and reviewers in autonomous driving / RL. Goal: make the core idea understandable in 60 seconds and let visitors verify the claims interactively.
+
+## Tech constraints
+- Static site, no backend. Vite + TypeScript, vanilla Canvas/SVG for simulations, and a light charting approach (D3 or hand-written SVG). No heavy frameworks unless justified. Must deploy to GitHub Pages (relative base path).
+- Responsive, light/dark theme, keyboard accessible, no autoplay audio. Every demo must have Play/Pause/Reset controls and work on mobile at reduced complexity.
+- Keep all paper numbers in one file src/data/results.ts, typed, so they are easy to correct. Keep all simulation parameters in src/data/params.ts.
+- Code organization: one module per demo under src/demos/<name>/, shared math in src/lib/ (bezier.ts, controller.ts, vehicle.ts, rewards.ts), shared UI in src/ui/. Write a README explaining how to add a demo and how to swap in real rollout data.
+
+## Page structure (single page, sticky section nav)
+0. Header: title, authors (Islem Kobbi, Tiago Rocha Goncalves, Fawzi Nashashibi), INRIA ASTRA team, links (paper, code, BibTeX as placeholders), 3 headline numbers from the abstract (success 90.49% -> 92.45%, off-road 4.21% -> 2.63%, WOSAC realism 0.687 -> 0.702).
+1. The problem: horizon mismatch (Demo 1).
+2. The method: reversible lookahead (Demo 2).
+3. The action interface: Bezier playground (Demo 3).
+4. Reward design: lookahead reward explorer (Demo 5).
+5. Qualitative results: side-by-side comparison (Demo 4) and self-play showcase (Demo 9).
+6. Quantitative results: results explorer (Demo 6), WOSAC included.
+7. Ablations: resolution trade-off (Demo 7) and observation corruption (Demo 8).
+8. Limitations / future work (adversarial agents), BibTeX, footer.
+
+## Demo specifications
+
+### Demo 1 - Horizon mismatch
+Timeline visualization with three selectable modes: Direct N_ss=1, Direct N_ss=20, REVAMP (Lookahead N_ss=20, dt'=0.1). Show the 2 s planned path as a bar, the retained portion highlighted (0.1 s for N_ss=1 and REVAMP; the full 2 s for Direct N_ss=20), and a replanning-frequency indicator (10 Hz / 0.5 Hz / 10 Hz). A small animated car replans at the corresponding frequency. One-sentence takeaway per mode taken from the paper.
+
+### Demo 2 - Reversible lookahead step-through (the hero demo)
+Top-down 2D mini-simulation (a road with a curve or intersection, 2-4 vehicles, one stationary obstacle). Vehicles use a kinematic bicycle model and follow their Bezier paths with the Appendix A controller (pure pursuit + heading/cross-track correction, PID speed). Since no trained policy runs in the browser, use a scripted "policy" that emits plausible normalized 11-dim actions (a few presets, plus an "add noise" toggle).
+- Stepper following Algorithm 1: 1 observe, 2 sample action, 3 decode trajectories, 4 deep copy state, 5 lookahead rollout for k=1..N_ss (draw ghost vehicles advancing along all agents' paths JOINTLY, so interactions are visible), 6 aggregate lookahead reward, 7 discard copy (ghosts fade out), 8 advance real state by one 0.1 s step, 9 combine r = r_real + r_look. Highlight the current step, show short explanatory text, allow auto-play with speed control.
+- Controls: N_ss (1-20), dt' (0.05-0.3 s), toggle "stop rollout on collision/off-road" (events stop the temporary rollout but never terminate the retained episode; state this in the UI).
+- Side panel: live reward breakdown for the current step (r_real terms, r_look terms), with the c_k weights (Eq. 20) drawn as a small bar chart.
+- Add a comparison switch: "Direct N_ss=20 (retain all substeps)" vs "REVAMP" to show the difference in what the simulator state retains.
+
+### Demo 3 - Bezier action playground
+- 11 sliders for the normalized action a = [a0^hx, a1(5 dims), a2(5 dims)] in [-1,1], grouped by control point, plus draggable handles on the canvas that update the sliders (bidirectional).
+- Ego speed slider. Implement decoding exactly per Appendix A: s = 2 + v/4; BE0=(0,0); BH0 = (1 + (a0hx+1)/2 * s, 0); BEx_i = (a_ex_i + 1.1) * s_i, BEy_i = a_ey_i * s_i; v*_i = 10(a_v_i + 1); BHx_i = BEx_i + (a_hx_i+1)/4 * s; BHy_i = BEy_i + a_hy_i/2 * s; two cubic segments with C2 = 2*BE_{i+1} - BH_{i+1}; sample 50 points; linearly interpolate target speed. Note: verify the paper's notation for s_i against Appendix A and flag any ambiguity in a code comment.
+- Show: the path, P0/P1/P2 markers, handles, target-speed profile chart, and a vehicle tracking the path with the controller (Eq. 41-45 params). Preset buttons: straight, gentle left, sharp right, stop.
+
+### Demo 4 - Side-by-side qualitative comparison
+Three synchronized panels (Direct N_ss=1, Direct N_ss=20, REVAMP) x three scenario tabs (curved road, intersection, overtaking). Load pre-recorded rollouts (JSON schema below) and render on canvas, or fall back to <video> files if provided. Overlay the full predicted 2 s path at each policy step (toggle). Shared scrubber, play/pause, frame-step. Under each scenario, show the paper's one-paragraph interpretation (e.g. N_ss=1's unexecuted path crosses the obstacle; N_ss=20 leaves excessive clearance; REVAMP is decisive with adequate clearance). Ship placeholder synthetic rollouts so the UI works before real data arrives.
+
+Rollout JSON schema (document in README, validate at load):
+{ "scenario": string, "method": "direct1"|"direct20"|"revamp", "dt": 0.1,
+  "map": { "roads": [[[x,y],...]], "edges": [[[x,y],...]], "goal": [x,y] },
+  "obstacles": [{ "x":..,"y":..,"heading":..,"length":..,"width":.. }],
+  "frames": [ { "t": number, "agents": [ { "id":int, "x":..,"y":..,"heading":..,"speed":..,"length":..,"width":..,
+        "plan": [[x,y],...50 pts] (optional), "lookahead": [[[x,y],...],...] (optional) } ] } ] }
+
+### Demo 5 - Lookahead reward explorer
+Given a chosen scenario from Demo 2, plot per-step contributions q_k = align + eff + prog + col + off (Eq. 19), weighted by c_k = (0.5 + 1.5k/N_ss)/N_ss, as a stacked bar over k=1..N_ss, plus the one-time control-point term and the goal term R_goal*(N_ss - k_g). Use Appendix C parameters (Tables VI, VII) with an editable coefficient panel and a "reset to paper values" button. Include short tooltips for each term, following Section IV-C.
+
+### Demo 6 - Results explorer
+Tabs: Direct vs Lookahead (Table II), WOSAC (Table III), Resolution (Table IV), Robustness (Table V). Bar charts with error bars (mean +/- SD), metric selector, sort/highlight best, and a "why this matters" caption per tab. In the WOSAC tab include SMART-R1 as a clearly labeled external reference that is NOT a controlled baseline. In the Table II view include the caveat that Direct variability is across checkpoints while Lookahead variability is across seeds. Be careful not to overclaim: Direct N_ss=1 has the best collision/off-road/success numbers, and the paper's argument is about complete-trajectory quality; show that honestly.
+
+### Demo 7 - Resolution trade-off
+Scatter/line chart: SPS (x) vs success (y) with DNF as marker size or a second panel, for (7,0.3), (10,0.2), (20,0.1). Hover cards with all Table IV metrics. Caption: (10, 0.2) is the favorable compromise; (7, 0.3) degrades badly (70.18% success, 20.50% DNF with high variance).
+
+### Demo 8 - Observation corruption
+Left: a top-down ego-centric observation view (ego, partners, road segments) with a slider for xi in [0, 1.5]. Implement Appendix B: p_miss = min(1, xi*0.10), p_phantom = min(1, xi*0.05) (phantom placed with d = sqrt(dmin^2 + U(dmax^2 - dmin^2)), dmin=5, dmax=50, random bearing/heading, speed in [0,15], 1.8x4.5 m), Gaussian noise scaled by xi with the nominal sigmas from Eq. 53-54. Draw true vs corrupted positions (missed = dashed outline, phantom = red ghost). "Resample" button. Right: the 3x3 train-xi x eval-xi heatmaps from Table V (success, collision, off-road, alignment) with a metric switch.
+
+### Demo 9 - Self-play showcase
+A looping grid of 4-6 short clips (video or canvas replays) of many agents driving together on CARLA-derived maps, with a caption explaining shared-policy self-play, agent-level goals and respawning. Placeholder assets until real ones are supplied.
+
+### Demo 10 (optional, behind a feature flag) - Encoder attention viewer
+Replay viewer for an ego agent's observation where partner/road tokens that win the max-pool in the encoder are drawn with a glow. Data comes from an optional JSON field per agent: "selected_partner_ids", "selected_road_ids". Disabled by default; clearly labeled "Additional analysis, not in the paper".
+
+## Data (put in src/data/results.ts)
+Table II (mean +/- SD): columns Collision, Off-road, DNF, Success, Alignment, MinDist, Heading
+- Direct N_ss=1: 1.42+/-0.22, 1.61+/-0.33, 3.10+/-0.27, 93.87+/-0.12, -0.155+/-0.004, 0.297+/-0.007, 0.094+/-0.003
+- Direct N_ss=20: 1.94+/-0.57, 4.21+/-1.14, 3.35+/-0.22, 90.49+/-1.77, -0.220+/-0.012, 0.622+/-0.054, 0.081+/-0.004
+- Lookahead N_ss=20 (dt'=0.1): 2.28+/-0.04, 2.63+/-1.17, 2.65+/-0.40, 92.45+/-1.46, -0.141+/-0.011, 0.279+/-0.025, 0.087+/-0.007
+Table III (Realism, Kinematic, Interactive, Map-based):
+- Direct N_ss=1: 0.690, 0.308, 0.688, 0.765
+- Direct N_ss=20: 0.687, 0.280, 0.694, 0.765
+- REVAMP N_ss=20: 0.702, 0.363, 0.689, 0.769
+- SMART-R1 (external): 0.786, 0.494, 0.811, 0.919
+(Also in text: minADE/ADE drop from ~12.7 to 11.8 with Lookahead.)
+Table IV (SPS, Collision, Off-road, DNF, Success, Alignment, MinDist, Heading):
+- (7, 0.3): 130k, 3.38+/-1.46, 5.94+/-3.44, 20.50+/-14.95, 70.18+/-18.93, -0.145+/-0.007, 0.350+/-0.041, 0.068+/-0.007
+- (10, 0.2): 115k, 1.89+/-0.29, 2.61+/-0.82, 3.96+/-0.39, 91.54+/-0.61, -0.132+/-0.004, 0.258+/-0.019, 0.073+/-0.011
+- (20, 0.1): 105k, 2.28+/-0.04, 2.63+/-1.17, 2.65+/-0.40, 92.45+/-1.46, -0.141+/-0.011, 0.279+/-0.025, 0.087+/-0.007
+Training throughput also: Direct 141k SPS (N_ss=1), 107k SPS (N_ss=20).
+Table V (rows = training xi 0/0.5/1, columns = eval xi 0/0.5/1; mean +/- SD):
+- Success: [91.54+/-0.61, 91.46+/-1.16, 91.09+/-1.16], [92.46+/-1.53, 91.93+/-1.04, 91.72+/-1.12], [92.09+/-1.84, 91.52+/-1.64, 91.35+/-1.67]
+- Collision: [1.89+/-0.29, 1.93+/-0.11, 2.12+/-0.06], [1.73+/-0.05, 1.69+/-0.12, 1.90+/-0.15], [1.86+/-0.53, 1.93+/-0.47, 1.87+/-0.58]
+- Off-road: [2.61+/-0.82, 2.70+/-0.68, 2.81+/-0.77], [2.10+/-0.69, 2.34+/-0.42, 2.32+/-0.60], [2.44+/-1.02, 2.77+/-0.83, 2.92+/-0.95]
+- Alignment: [-0.132+/-0.004, -0.200+/-0.008, -0.202+/-0.009], [-0.133+/-0.013, -0.214+/-0.047, -0.215+/-0.046], [-0.145+/-0.017, -0.231+/-0.017, -0.231+/-0.016]
+Reward coefficients: Tables VI and VII in Appendix C. Architecture: ego 8 features, 32 partner slots x 7, 128 road slots x 7 = 1,128-dim observation; 64-d encoders with max pooling, concat 192 -> project 256 -> LSTM 256 -> actor (11-d) / critic (1-d).
+
+## Design and quality bar
+- Clean academic project-page look (think a polished Nerfies/Distill-style page): generous whitespace, one accent color, consistent vehicle color coding (ego = accent, others = grey, obstacles = dark, speculative/ghost = translucent dashed).
+- Every interactive demo has a one-line "what to look at" hint and a caption tying it to a specific section/table/figure of the paper.
+- Performance: canvas demos at 60 fps on a laptop; pause offscreen demos (IntersectionObserver); lazy-load videos.
+- Do not invent results. Any number not in the paper must be labeled as illustrative/synthetic in the UI.
+- Deliverables: working project (npm run dev / npm run build), README, placeholder assets, and a short list at the end of anything you were unsure about in the paper.
+
+Work incrementally: first scaffold the page, shared libs and results.ts; then Demos 2 and 3 (they share the math); then 1, 6, 7; then 5, 8; then 4 and 9 with placeholder data; 10 last. Show me the page after each stage.
