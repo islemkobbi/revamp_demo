@@ -1,6 +1,6 @@
 import {metricInfo, paper, type Metric, type ResultRow} from '../data/results';
 
-const colors = ['#9aabb6', '#6f899a', '#24577a', '#b6a28e'];
+const colors = ['#a6b4ba', '#506c7b', '#e63312', '#76a83c'];
 const fmt = (value: number) => Math.abs(value) < 1 && value !== 0 ? value.toFixed(3) : value.toFixed(2);
 const category = (row: ResultRow): [string, string] => {
   if (row.id === 'direct1') return ['Direct', 'Nss = 1'];
@@ -35,7 +35,7 @@ function metricChart(rows: ResultRow[], metric: Metric, tall = false): string {
     const sd = value.sd === undefined ? '' : `<line x1="${center}" y1="${y(value.mean-value.sd)}" x2="${center}" y2="${y(value.mean+value.sd)}" class="bar-error"/><line x1="${center-8}" y1="${y(value.mean-value.sd)}" x2="${center+8}" y2="${y(value.mean-value.sd)}" class="bar-error"/><line x1="${center-8}" y1="${y(value.mean+value.sd)}" x2="${center+8}" y2="${y(value.mean+value.sd)}" class="bar-error"/>`;
     const [first, second] = category(row);
     const valueY = value.mean >= 0 ? Math.max(17, y(value.mean+(value.sd ?? 0))-8) : Math.min(bottom + 19,y(value.mean-(value.sd ?? 0))+14);
-    return `<rect x="${center-barWidth/2}" y="${barTop}" width="${barWidth}" height="${barHeight}" fill="${colors[i % colors.length]}"/>${sd}<text x="${center}" y="${valueY}" text-anchor="middle" class="bar-value">${fmt(value.mean)}</text><text x="${center}" y="${bottom + 28}" text-anchor="middle" class="bar-category">${first}</text><text x="${center}" y="${bottom + 48}" text-anchor="middle" class="bar-category-sub">${second}</text>`;
+    return `<rect x="${center-barWidth/2}" y="${barTop}" width="${barWidth}" height="${barHeight}" fill="${tall && i === 3 ? '#8c9298' : colors[i % colors.length]}"/>${sd}<text x="${center}" y="${valueY}" text-anchor="middle" class="bar-value">${fmt(value.mean)}</text><text x="${center}" y="${bottom + 28}" text-anchor="middle" class="bar-category">${first}</text><text x="${center}" y="${bottom + 48}" text-anchor="middle" class="bar-category-sub">${second}</text>`;
   }).join('');
   const description = rows.map(row => { const value = row.metrics[metric]; return `${row.label}: ${value ? `${fmt(value.mean)}${value.sd === undefined ? '' : ` ± ${fmt(value.sd)}`}` : 'not reported'}`; }).join('; ');
   return `<figure class="metric-chart"><figcaption>${label}</figcaption><svg viewBox="0 0 500 ${bottom + 68}" role="img" aria-label="Bar chart of ${label}. ${description}">${ticks}<line x1="${left}" y1="${top}" x2="${left}" y2="${bottom}" class="bar-axis"/><line x1="${left}" y1="${baseline}" x2="${right}" y2="${baseline}" class="bar-axis"/>${bars}</svg></figure>`;

@@ -2,6 +2,13 @@ import './style.css';
 import {paper, directResults, resolutionResults, wosacResults, tableCaptions} from './data/results';
 import {resultCharts} from './ui/static-charts';
 
+const authorProfiles: Record<string, string> = {
+  'Islem Kobbi': 'https://www.linkedin.com/in/islem-kobbi/',
+  'Tiago Rocha Goncalves': 'https://www.linkedin.com/in/tiagorochag/',
+  'Fawzi Nashashibi': 'https://www.linkedin.com/in/fawzi-nashashibi-3a50ab10/',
+};
+const authorLink = (name: string) => `<a href="${authorProfiles[name]}" target="_blank" rel="noopener noreferrer">${name}</a>`;
+
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const heading = (number: string, label: string, title: string, description: string) => `<div class="section-heading"><span class="section-number">${number}</span><div><p class="eyebrow">${label}</p><h2>${title}</h2><p class="section-description">${description}</p></div></div>`;
 
@@ -11,9 +18,9 @@ const videoVersions: Record<string, string> = {"demo_nss_1": "6d5c76e42e09", "de
 const videoCard = (file: string, label: string) => `<figure class="case-card" style="--video-ratio:${file === 'dream_demo' ? 12 / 7 : file === 'direct_demo' ? 30 / 31 : 240 / 229}"><video data-playback-rate="${file === 'direct_demo' ? 0.25 : 1.5}" controls autoplay muted loop playsinline preload="metadata" aria-label="${label} demonstration"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.webm?v=${videoVersions[file]}" type="video/webm"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.mp4?v=${videoVersions[file]}" type="video/mp4">Video playback is unavailable.</video><figcaption><strong>${label}</strong></figcaption></figure>`;
 
 app.innerHTML = `
-<header class="topbar"><div class="brand">REVAMP<span class="brand-divider">/</span><span class="brand-caption">Research overview</span></div><span class="team">INRIA · ASTRA</span></header>
+<header class="topbar"><div class="brand">REVAMP<span class="brand-divider">/</span><span class="brand-caption">Research demonstrations</span></div><div class="institution-logos" aria-label="Inria and Valeo"><img src="${import.meta.env.BASE_URL}logos/inria.png" alt="Inria"><img src="${import.meta.env.BASE_URL}logos/valeo.png" alt="Valeo"></div></header>
 <main id="main">
-<header class="paper-header wrap"><p class="eyebrow">Reinforcement learning · Motion planning</p><h1>${paper.title}</h1><p class="authors">${paper.authors.join('<span> · </span>')}</p><p class="affiliation">INRIA ASTRA team</p></header>
+<header class="paper-header wrap"><p class="eyebrow">Reinforcement learning · Motion planning</p><h1>${paper.title}</h1><p class="authors">${paper.authors.map(authorLink).join('<span> · </span>')}</p><p class="affiliation">INRIA ASTRA team</p></header>
 <div class="wrap content">
 <section id="method" class="paper-section idea-section">
 ${heading('01', 'The idea', 'Evaluate the future. Keep the present.', 'A short executed step can hide problems later in a predicted trajectory. REVAMP evaluates that future in a temporary copy of the world, then returns to the original state for a short real step.')}
@@ -50,7 +57,7 @@ ${heading('03', 'Model demonstrations', 'Driving scenes and model videos.', 'Dem
             and Nashashibi, Fawzi},
   note = {Publication details pending}
 }</code></pre></div></section>
-</div></main><footer class="wrap"><span class="brand">REVAMP<span class="brand-divider">/</span><span class="brand-caption">Research overview</span></span><span>INRIA · ASTRA team</span></footer>`;
+</div></main><footer class="wrap site-footer"><div class="footer-project"><span class="brand">REVAMP</span><p>Demonstrations accompanying the research article.</p><p class="repo-note">This repository contains the demo website only. Research source code is not included.</p></div><div class="footer-contact"><h2>Contact</h2><p>${paper.authors.map(authorLink).join('<br>')}<br><span>Inria ASTRA team · LinkedIn</span></p></div></footer>`;
 
 // Set the media property explicitly: dynamically inserted markup only sets defaultMuted.
 for (const video of document.querySelectorAll<HTMLVideoElement>('.case-card video')) {
