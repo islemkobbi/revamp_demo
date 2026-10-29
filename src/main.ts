@@ -1,6 +1,6 @@
 import './style.css';
 import {paper, directResults, resolutionResults, wosacResults, tableCaptions} from './data/results';
-import {resultCharts} from './ui/static-charts';
+import {resultCharts, robustnessTables} from './ui/static-charts';
 
 const authorProfiles: Record<string, string> = {
   'Islem Kobbi': 'https://www.linkedin.com/in/islem-kobbi/',
@@ -16,6 +16,7 @@ const figure = (file: string, width: number, height: number, title: string, desc
 
 const videoVersions: Record<string, string> = {"demo_nss_1": "6d5c76e42e09", "demo_nss_20": "768a84c9584a", "demo_dream": "05eb3a894a81", "dream_demo": "e312f96381c7", "direct_demo": "0a87a3d8e01c"};
 const videoCard = (file: string, label: string) => `<figure class="case-card" style="--video-ratio:${file === 'dream_demo' ? 12 / 7 : file === 'direct_demo' ? 30 / 31 : 240 / 229}"><video data-playback-rate="${file === 'direct_demo' ? 0.25 : 1.5}" controls autoplay muted loop playsinline preload="metadata" aria-label="${label} demonstration"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.webm?v=${videoVersions[file]}" type="video/webm"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.mp4?v=${videoVersions[file]}" type="video/mp4">Video playback is unavailable.</video><figcaption><strong>${label}</strong></figcaption></figure>`;
+const robustnessVideoCard = (file: string, scale: string) => `<figure class="case-card robustness-video"><div class="robustness-video-frame"><video data-playback-rate="1.5" controls autoplay muted loop playsinline preload="metadata" aria-label="REVAMP evaluated at error scale ${scale}"><source src="${import.meta.env.BASE_URL}videos/${file}.mp4" type="video/mp4">Video playback is unavailable.</video></div><figcaption><strong>Error scale ${scale}</strong><span>REVAMP · trained with error scale 0</span></figcaption></figure>`;
 
 app.innerHTML = `
 <header class="topbar"><div class="brand">REVAMP<span class="brand-divider">/</span><span class="brand-caption">Research demonstrations</span></div><div class="institution-logos" aria-label="Inria and Valeo"><img src="${import.meta.env.BASE_URL}logos/inria.png" alt="Inria"><img src="${import.meta.env.BASE_URL}logos/valeo.png" alt="Valeo"></div></header>
@@ -50,6 +51,14 @@ ${resultCharts(resolutionResults,['sps','collision','offroad','dnf','success','a
 ${heading('03', 'Model demonstrations', 'Driving scenes and model videos.', 'Demonstrations of Direct Nss = 1, Direct Nss = 20, and REVAMP.')}
 <div class="case-grid">${videoCard('demo_nss_1','Direct · Nss = 1')}${videoCard('demo_nss_20','Direct · Nss = 20')}${videoCard('demo_dream','REVAMP')}</div>
 </section>
+<section id="robustness" class="paper-section robustness-section">
+${heading('04', 'Observation corruption', 'Robustness to observation corruption.', 'The videos follow one REVAMP policy trained without observation corruption (training scale ξ = 0) as evaluation corruption increases from ξ = 0 to 1.')}
+<div class="case-grid robustness-videos">${robustnessVideoCard('es0','0')}${robustnessVideoCard('es05','0.5')}${robustnessVideoCard('es1','1')}</div>
+<div class="robustness-bridge"><span class="eyebrow">From examples to measurements</span><p>The videos isolate the no-corruption training condition. The four tables below expand the view to the complete study, including policies trained at every corruption scale.</p></div>
+<div class="sub-heading robustness-results-heading"><h3>Performance across training and evaluation scales</h3><p>Rows show the corruption scale used during training; columns show the scale applied during evaluation. Values are mean ± standard deviation.</p></div>
+${robustnessTables()}
+<p class="robustness-note">${tableCaptions.robustness}</p>
+</section>
 <section id="limitations" class="closing"><p class="eyebrow">Notes & limitations</p><h2>Source verification and next steps</h2><div class="closing-columns"><p>The reported measurements were transcribed from the supplied specification. The full source paper is needed to verify controller gains, reward coefficients, noise scales, and the action decoder’s scale notation.</p><p>The method and qualitative figures and demo videos were supplied separately from the full paper. Adversarial agents remain a direction for future work.</p></div></section>
 <section id="citation" class="citation"><div><span class="eyebrow">BUILD ON THIS WORK</span><h2>Reference</h2><p>BibTeX template · publication details pending</p></div><div class="citation-code"><pre><code id="bibtex">@misc{kobbi_revamp,
   title = {${paper.title}},
@@ -63,7 +72,10 @@ ${heading('03', 'Model demonstrations', 'Driving scenes and model videos.', 'Dem
 for (const video of document.querySelectorAll<HTMLVideoElement>('.case-card video')) {
   const updateAspectRatio = () => {
     if (video.videoWidth && video.videoHeight) {
-      video.closest<HTMLElement>('.case-card')?.style.setProperty('--video-ratio', String(video.videoWidth / video.videoHeight));
+      const robustnessFrame = video.closest<HTMLElement>('.robustness-video-frame');
+      const visibleRatio = video.videoWidth / (video.videoHeight * 0.7);
+      if (robustnessFrame) robustnessFrame.style.aspectRatio = String(visibleRatio);
+      video.closest<HTMLElement>('.case-card')?.style.setProperty('--video-ratio', String(robustnessFrame ? visibleRatio : video.videoWidth / video.videoHeight));
     }
   };
   video.addEventListener('loadedmetadata', updateAspectRatio);

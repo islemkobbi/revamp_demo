@@ -1,4 +1,4 @@
-import {metricInfo, paper, type Metric, type ResultRow} from '../data/results';
+import {metricInfo, noiseLevels, paper, robustness, type Metric, type ResultRow, type RobustMetric} from '../data/results';
 
 const colors = ['#a6b4ba', '#506c7b', '#e63312', '#76a83c'];
 const fmt = (value: number) => Math.abs(value) < 1 && value !== 0 ? value.toFixed(3) : value.toFixed(2);
@@ -44,6 +44,15 @@ function metricChart(rows: ResultRow[], metric: Metric, tall = false): string {
 export function resultCharts(rows: ResultRow[], metrics: Metric[], caption: string, columns = 3): string {
   const hasSd = rows.some(row => metrics.some(metric => row.metrics[metric]?.sd !== undefined));
   return `<div class="results-figure"><div class="results-charts${columns === 4 ? ' results-charts-four' : ''}">${metrics.map(metric => metricChart(rows, metric, columns === 4)).join('')}</div><p class="figure-note">${hasSd ? 'Bars show reported means; error bars show ±1 standard deviation. Axes start at zero. ' : 'Bars show reported scores. Axes start at zero. '}${caption}</p></div>`;
+}
+
+export function robustnessTables(): string {
+  const metrics: RobustMetric[] = ['success', 'collision', 'offroad', 'alignment'];
+  return `<div class="robustness-tables">${metrics.map(metric => {
+    const info = metricInfo[metric];
+    const decimals = metric === 'alignment' ? 3 : 2;
+    return `<section class="robustness-table-card"><div class="robustness-table-title"><h4>${info.label}${info.unit ? ` (${info.unit})` : ''}</h4><span>${info.higher ? 'Higher' : 'Lower'} is better</span></div><div class="table-scroll"><table class="robustness-table"><thead><tr><th scope="col">Training ξ</th>${noiseLevels.map(scale => `<th scope="col">Evaluation ξ = ${scale}</th>`).join('')}</tr></thead><tbody>${noiseLevels.map((trainScale, rowIndex) => `<tr><th scope="row">${trainScale}</th>${robustness[metric][rowIndex].map(value => `<td>${value.mean.toFixed(decimals)} <small>± ${value.sd?.toFixed(decimals)}</small></td>`).join('')}</tr>`).join('')}</tbody></table></div></section>`;
+  }).join('')}</div>`;
 }
 
 export function architectureFlow(): string {
