@@ -14,9 +14,9 @@ const heading = (number: string, label: string, title: string, description: stri
 
 const figure = (file: string, width: number, height: number, title: string, description: string, extraClass = '') => `<figure class="paper-figure ${extraClass}"><img src="${import.meta.env.BASE_URL}figures/${file}.png" width="${width}" height="${height}" alt="${description}" loading="lazy" decoding="async"><figcaption><strong>${title}</strong> ${description}</figcaption></figure>`;
 
-const videoVersions: Record<string, string> = {"demo_nss_1": "6d5c76e42e09", "demo_nss_20": "768a84c9584a", "demo_dream": "05eb3a894a81", "dream_demo": "e312f96381c7", "direct_demo": "0a87a3d8e01c"};
-const videoCard = (file: string, label: string) => `<figure class="case-card" style="--video-ratio:${file === 'dream_demo' ? 12 / 7 : file === 'direct_demo' ? 30 / 31 : 240 / 229}"><video data-playback-rate="${file === 'direct_demo' ? 0.25 : 1.5}" controls autoplay muted loop playsinline preload="metadata" aria-label="${label} demonstration"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.webm?v=${videoVersions[file]}" type="video/webm"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.mp4?v=${videoVersions[file]}" type="video/mp4">Video playback is unavailable.</video><figcaption><strong>${label}</strong></figcaption></figure>`;
-const robustnessVideoCard = (file: string, scale: string) => `<figure class="case-card robustness-video"><div class="robustness-video-frame"><video data-playback-rate="1.5" controls autoplay muted loop playsinline preload="metadata" aria-label="REVAMP evaluated at error scale ${scale}"><source src="${import.meta.env.BASE_URL}videos/${file}.mp4" type="video/mp4">Video playback is unavailable.</video></div><figcaption><strong>Error scale ${scale}</strong><span>REVAMP · trained with error scale 0</span></figcaption></figure>`;
+const videoVersions: Record<string, string> = {"demo_nss_1": "6d5c76e42e09", "demo_nss_20": "768a84c9584a", "demo_dream": "05eb3a894a81", "dream_demo": "e312f96381c7", "direct_demo": "0a87a3d8e01c", "es0": "33fe1e9dd4e9", "es05": "04b723020244", "es1": "81721ced0e40"};
+const videoRatios: Record<string, number> = {dream_demo: 12 / 7, direct_demo: 30 / 31, es0: 640 / 581, es05: 640 / 581, es1: 640 / 581};
+const videoCard = (file: string, label: string, description = '', accessibleLabel = `${label} demonstration`) => `<figure class="case-card" style="--video-ratio:${videoRatios[file] ?? 240 / 229}"><video data-playback-rate="${file === 'direct_demo' ? 0.25 : 1.5}" controls autoplay muted loop playsinline preload="metadata" aria-label="${accessibleLabel}"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.webm?v=${videoVersions[file]}" type="video/webm"><source src="${import.meta.env.BASE_URL}videos/browser/${file}.mp4?v=${videoVersions[file]}" type="video/mp4">Video playback is unavailable.</video><figcaption><strong>${label}</strong>${description ? `<span>${description}</span>` : ''}</figcaption></figure>`;
 
 app.innerHTML = `
 <header class="topbar"><div class="brand">REVAMP<span class="brand-divider">/</span><span class="brand-caption">Research demonstrations</span></div><div class="institution-logos" aria-label="Inria and Valeo"><img src="${import.meta.env.BASE_URL}logos/inria.png" alt="Inria"><img src="${import.meta.env.BASE_URL}logos/valeo.png" alt="Valeo"></div></header>
@@ -53,7 +53,7 @@ ${heading('03', 'Model demonstrations', 'Driving scenes and model videos.', 'Dem
 </section>
 <section id="robustness" class="paper-section robustness-section">
 ${heading('04', 'Observation corruption', 'Robustness to observation corruption.', 'The videos follow one REVAMP policy trained without observation corruption (training scale ξ = 0) as evaluation corruption increases from ξ = 0 to 1.')}
-<div class="case-grid robustness-videos">${robustnessVideoCard('es0','0')}${robustnessVideoCard('es05','0.5')}${robustnessVideoCard('es1','1')}</div>
+<div class="case-grid robustness-videos">${[['es0','0'],['es05','0.5'],['es1','1']].map(([file,scale]) => videoCard(file,`Error scale ${scale}`,'REVAMP · trained with error scale 0',`REVAMP evaluated at error scale ${scale}`)).join('')}</div>
 <div class="robustness-bridge"><span class="eyebrow">From examples to measurements</span><p>The videos isolate the no-corruption training condition. The four tables below expand the view to the complete study, including policies trained at every corruption scale.</p></div>
 <div class="sub-heading robustness-results-heading"><h3>Performance across training and evaluation scales</h3><p>Rows show the corruption scale used during training; columns show the scale applied during evaluation. Values are mean ± standard deviation.</p></div>
 ${robustnessTables()}
@@ -72,10 +72,7 @@ ${robustnessTables()}
 for (const video of document.querySelectorAll<HTMLVideoElement>('.case-card video')) {
   const updateAspectRatio = () => {
     if (video.videoWidth && video.videoHeight) {
-      const robustnessFrame = video.closest<HTMLElement>('.robustness-video-frame');
-      const visibleRatio = video.videoWidth / (video.videoHeight * 0.7);
-      if (robustnessFrame) robustnessFrame.style.aspectRatio = String(visibleRatio);
-      video.closest<HTMLElement>('.case-card')?.style.setProperty('--video-ratio', String(robustnessFrame ? visibleRatio : video.videoWidth / video.videoHeight));
+      video.closest<HTMLElement>('.case-card')?.style.setProperty('--video-ratio', String(video.videoWidth / video.videoHeight));
     }
   };
   video.addEventListener('loadedmetadata', updateAspectRatio);
